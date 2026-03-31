@@ -1,0 +1,19 @@
+name: Require Label (reusable)
+
+on:
+  workflow_call:
+
+jobs:
+  check-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for label
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        run: |
+          count=$(echo "$LABELS" | jq 'length')
+          if [ "$count" -eq 0 ]; then
+            echo "Must add label"
+            exit 1
+          fi
+          echo "Label has been set"
