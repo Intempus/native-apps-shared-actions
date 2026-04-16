@@ -16,7 +16,9 @@ on:
     secrets:
       MERGE_TOKEN:
         required: true
-      TEST_SLACK_WEBHOOK_URL:
+      PR_SLACK_WEBHOOK_URL:
+        required: true
+      MOBILE_DEVOPS_SLACK_WEBHOOK_URL:
         required: true
 
 jobs:
@@ -51,11 +53,11 @@ jobs:
         run: |
           curl -s -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"${{ inputs.platform }}: <${{ steps.pr.outputs.pr_url }}|Release ${{ inputs.next_version }}>\"}" \
-            "${{ secrets.TEST_SLACK_WEBHOOK_URL }}"
+            "${{ secrets.PR_SLACK_WEBHOOK_URL }}"
 
       - name: Notify Slack on failure
         if: failure()
         run: |
           curl -s -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"⚠️ *${{ inputs.platform }} weekly release PR* workflow failed. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>\"}" \
-            "${{ secrets.TEST_SLACK_WEBHOOK_URL }}"
+            "${{ secrets.MOBILE_DEVOPS_SLACK_WEBHOOK_URL }}"
