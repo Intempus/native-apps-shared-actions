@@ -1,0 +1,42 @@
+name: Check DST period (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      event_name:
+        description: 'github.event_name from the caller'
+        required: true
+        type: string
+      cron_schedule:
+        description: 'github.event.schedule from the caller (empty for non-schedule runs)'
+        required: false
+        type: string
+        default: ''
+    outputs:
+      skip:
+        description: '"true" if the wrong DST cron fired and the run should be skipped'
+        value: ${{ jobs.check.outputs.skip }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.dst.outputs.skip }}
+    steps:
+      - name: Check DST period
+        id: dst
+        run: |
+          if [[ "${{ inputs.event_name }}" != "schedule" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          OFFSET=$(TZ=Europe/Berlin date +%z)
+          if [[ "$OFFSET" == "+0200" && "${{ inputs.cron_schedule }}" == "50 7 * * 4" ]]; then
+            echo "::notice::Summer time active — skipping winter cron"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$OFFSET" == "+0100" && "${{ inputs.cron_schedule }}" == "50 6 * * 4" ]]; then
+            echo "::notice::Winter time active — skipping summer cron"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi

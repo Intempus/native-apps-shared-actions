@@ -1,0 +1,61 @@
+name: Create Release PR (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: '"iOS", "Android", or "KMM"'
+        required: true
+        type: string
+      next_version:
+        required: true
+        type: string
+      base_branch:
+        required: true
+        type: string
+    secrets:
+      MERGE_TOKEN:
+        required: true
+      TEST_SLACK_WEBHOOK_URL:
+        required: true
+
+jobs:
+  create-release-pr:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.MERGE_TOKEN }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.MERGE_TOKEN }}
+
+      - name: Create or find release PR
+        id: pr
+        run: |
+          PR_URL=$(gh pr list --base ${{ inputs.base_branch }} --head develop \
+            --state open --json url --jq '.[0].url')
+          if [ -z "$PR_URL" ]; then
+            PR_URL=$(gh pr create \
+              --base ${{ inputs.base_branch }} \
+              --head develop \
+              --title "${{ inputs.platform }} release: ${{ inputs.next_version }}" \
+              --body "Automated weekly release PR." \
+              --label productivity)
+          fi
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack
+        run: |
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"${{ inputs.platform }}: <${{ steps.pr.outputs.pr_url }}|Release ${{ inputs.next_version }}>\"}" \
+            "${{ secrets.TEST_SLACK_WEBHOOK_URL }}"
+
+      - name: Notify Slack on failure
+        if: failure()
+        run: |
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"⚠️ *${{ inputs.platform }} weekly release PR* workflow failed. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>\"}" \
+            "${{ secrets.TEST_SLACK_WEBHOOK_URL }}"
